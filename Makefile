@@ -3,7 +3,7 @@ OUTPUT = sfmlgame1
 
 SFML_DIR = .
 
-CXX_FLAGS = -O0
+CXX_FLAGS = -O0 -g
 INCLUDES = -I./src -I$(SFML_DIR)/include
 LDFLAGS = -L$(SFML_DIR)/lib -lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio
 
