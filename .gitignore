@@ -1,0 +1,6 @@
+design/
+/external_Dependencies
+bin/
+.vscode/
+src/*.o
+
