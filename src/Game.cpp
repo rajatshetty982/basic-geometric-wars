@@ -221,6 +221,7 @@ void Game::spawnBullet(std::shared_ptr<Entity> e, const Vec2& target)
 	Vec2 velocity;
 	velocity.x = cos(angle_q) * m_bulletConfig.S;
 	velocity.y = sin(angle_q) * m_bulletConfig.S;
+	std::cout << "Bullet vel x: " << velocity.x << " y: " << velocity.y << "\n";
 	// MATH END!!
 	float player_radius = m_player->cShape->circle.getRadius();
 	// Vec2 start_pos = {m_player->cTransform->pos.x + player_radius, m_player->cTransform->pos.y + player_radius};
