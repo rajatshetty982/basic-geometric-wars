@@ -98,6 +98,7 @@ void Game::run(){
 			sMovement();
 			sCollision();
 			sUserInput();
+			sLifespan();
 		}
 		sRender();
 
@@ -182,6 +183,7 @@ void Game::spawnEnemy()
 											  sf::Color(m_enemyConfig.OR, m_enemyConfig.OG, m_enemyConfig.OB), m_enemyConfig.OT);
 
 	entity->cCollision = std::make_shared<CCollision>(m_enemyConfig.CR);
+	
 	// record the most recernt enemy was spawned
 	m_lastEnemySpawnTime = m_currentFrame;
 }
@@ -207,34 +209,34 @@ void Game::spawnBullet(std::shared_ptr<Entity> e, const Vec2& target)
 
 	auto bullet = m_entities.addEntity("bullet");
 	// MATHH!!
-	// get x and y by minusing
-	float x_player = m_player->cTransform->pos.x;
-	float y_player = m_player->cTransform->pos.y;
-	float x_length = target.x - x_player;
-	float y_length = target.y - y_player;
+    float dx = target.x - m_player->cTransform->pos.x;
+    float dy = target.y - m_player->cTransform->pos.y;
 
-	// get the angle of click to current player pos
-	float result_radians = std::atan2(y_length, x_length);
-	float angle_q = (result_radians * 180) / M_PI;
+    // direction vector normalized
+    float totalLen = std::sqrt(dx*dx + dy*dy);
+    Vec2 dir(0, 0);
+    if(totalLen != 0) { dir.x = dx/totalLen; dir.y = dy/totalLen; }
 
-	// use the angle to get the velocity x and y
-	Vec2 velocity;
-	velocity.x = cos(angle_q) * m_bulletConfig.S;
-	velocity.y = sin(angle_q) * m_bulletConfig.S;
-	std::cout << "Bullet vel x: " << velocity.x << " y: " << velocity.y << "\n";
-	// MATH END!!
-	float player_radius = m_player->cShape->circle.getRadius();
-	// Vec2 start_pos = {m_player->cTransform->pos.x + player_radius, m_player->cTransform->pos.y + player_radius};
-	Vec2 start_pos = {m_player->cTransform->pos.x , m_player->cTransform->pos.y};
-	bullet->cTransform = std::make_shared<CTransform>(start_pos, velocity, 0);
+    Vec2 velocity = {dir.x * m_bulletConfig.S, dir.y * m_bulletConfig.S};
 
-	bullet->cShape = std::make_shared<CShape>(m_bulletConfig.SR, m_bulletConfig.V,
-											  sf::Color(m_bulletConfig.FR, m_bulletConfig.FG, m_bulletConfig.FB),
-											  sf::Color(m_bulletConfig.OR, m_bulletConfig.OG, m_bulletConfig.OB),
-											  m_bulletConfig.OT);
+    Vec2 start_pos = {m_player->cTransform->pos.x, m_player->cTransform->pos.y};
+    bullet->cTransform = std::make_shared<CTransform>(start_pos, velocity, 0);
 
-	bullet->cCollision = std::make_shared<CCollision>(m_bulletConfig.CR);
-		// TODO bullet should have lifespan depending on movement
+    bullet->cShape = std::make_shared<CShape>(
+        m_bulletConfig.SR, m_bulletConfig.V,
+        sf::Color(m_bulletConfig.FR, m_bulletConfig.FG, m_bulletConfig.FB),
+        sf::Color(m_bulletConfig.OR, m_bulletConfig.OG, m_bulletConfig.OB),
+        m_bulletConfig.OT
+    );
+
+    bullet->cCollision = std::make_shared<CCollision>(m_bulletConfig.CR);
+
+	// give a lifespan
+	float totalLifespan = totalLen / m_bulletConfig.S;
+	std::cout << "Bullet totalLifespan is: " << totalLifespan << "\n" << "total len: " << totalLen << "\n";
+	bullet->cLifespan = std::make_shared<CLifespan>(totalLifespan+4);
+
+	// lifespan can be gotten by, total = dist between Xm, Ym - start pos, see how many pixels per frame and multiply by fps
 }
 
 void Game::spawnSpecialWeapon(std::shared_ptr<Entity> e)
@@ -284,7 +286,7 @@ void Game::sMovement()
 		e->cTransform->pos.x += e->cTransform->velocity.x;
 		e->cTransform->pos.y += e->cTransform->velocity.y;
 	}
-for (auto e : m_entities.getEntities("bullets"))
+for (auto e : m_entities.getEntities("bullet"))
 	{
 		e->cTransform->pos.x += e->cTransform->velocity.x;
 		e->cTransform->pos.y += e->cTransform->velocity.y;
@@ -301,6 +303,25 @@ void Game::sLifespan()
 		// scale alpha properly (it should have alpha of percentage of it life left)
 	// if has lifespan and is 0
 		// destroy!!
+	for (auto e : m_entities.getEntities())
+	{
+		if (e->cLifespan)
+		{
+			if (e->cLifespan->remaining > 0)
+			{
+				e->cLifespan->remaining -= 1;
+				// int currentAlpha = e->getCurrentAlpha();
+				float ratioOfAlphaToSet = float(e->cLifespan->remaining) / float(e->cLifespan->total);
+				int alphaToSet = ratioOfAlphaToSet * 255;
+				std::cout << "ratio " << ratioOfAlphaToSet << "Alpha: " << alphaToSet << "\n";
+				e->setAlpha(alphaToSet);
+			}
+			if (e->isActive() && e->cLifespan->remaining <= 0)
+			{
+				e->destroy();
+			}
+		}
+	}
 }
 
 void Game::sCollision()
@@ -308,6 +329,19 @@ void Game::sCollision()
 	// TODO
 	// implement the collisions
 	// use coll rad not the Shape rad
+
+	sf::Vector2 window_size = m_window.getSize();
+	for (auto e : m_entities.getEntities())
+	{
+		if (e->cTransform->pos.x <= 0 + e->cShape->circle.getRadius() || e->cTransform->pos.x >= window_size.x - e->cShape->circle.getRadius())
+		{
+			e->cTransform->velocity.x *= -1;
+		}
+		if (e->cTransform->pos.y <= 0 + e->cShape->circle.getRadius() || e->cTransform->pos.y >= window_size.y - e->cShape->circle.getRadius())
+		{
+			e->cTransform->velocity.y *= -1;
+		}
+	}
 
 	for (auto b : m_entities.getEntities("bullet"))
 	{
@@ -321,7 +355,6 @@ void Game::sCollision()
 				if (b) b->destroy();
 				if (e) e->destroy();
 			}
-			// update the isActive to false
 		}
 	}
 }
@@ -343,7 +376,7 @@ void Game::sRender()
 
 	for (auto e: m_entities.getEntities())
 	{
-		if (e->cShape && e->cTransform)
+		if (e->cShape && e->cTransform && e->isActive())
 		{
 
 		e->cShape->circle.setPosition(e->cTransform->pos.x, e->cTransform->pos.y);
