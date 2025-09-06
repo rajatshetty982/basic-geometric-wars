@@ -28,6 +28,7 @@ class Game
 	bool m_paused = false;
 	bool m_running = true;
 
+
 	std::shared_ptr<Entity> m_player;
 
 	void init(const std::string& config); // reads from config file

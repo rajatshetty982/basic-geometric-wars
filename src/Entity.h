@@ -10,6 +10,8 @@ class Entity
 	bool m_active = true;
 	size_t m_id = 0;
 	std::string m_tag = "default";
+	bool m_collidedAtX = false;
+	bool m_collidedAtY = false;
 
 	// constructor
 	Entity(const size_t id, const std::string &tag)
@@ -30,4 +32,8 @@ public:
 	const size_t id() const;
 	void destroy();
 	void setAlpha(int alphaValue);
+	bool hasCollidedAtX();
+	bool hasCollidedAtY();
+	void setCollidedAtY(bool);
+	void setCollidedAtX(bool);
 };

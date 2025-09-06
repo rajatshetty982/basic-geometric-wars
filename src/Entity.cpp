@@ -29,3 +29,23 @@ void Entity::setAlpha(int alphaValue)
 	cShape->circle.setFillColor(sf::Color(color));
 }
 
+bool Entity::hasCollidedAtX()
+{
+	return m_collidedAtX;
+}
+
+
+bool Entity::hasCollidedAtY()
+{
+	return m_collidedAtY;
+
+}
+void Entity::setCollidedAtX(bool boolVal)
+{
+	m_collidedAtX = boolVal;
+}
+
+void Entity::setCollidedAtY(bool boolVal)
+{
+	m_collidedAtY = boolVal;
+}

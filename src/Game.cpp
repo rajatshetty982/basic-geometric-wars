@@ -84,9 +84,6 @@ void Game::init(const std::string &path)
 }
 
 void Game::run(){
-	// TODO: add pause functionality
-	// 		 some systems should be running while paused (rendering)
-	//		 movements and inputs should halt
 
 	while (m_running)
 	{
@@ -202,9 +199,6 @@ void Game::spawnSmallEnemies(std::shared_ptr<Entity> e)
 
 void Game::spawnBullet(std::shared_ptr<Entity> e, const Vec2& target)
 {
-	// TODO 
-	// bullet travels to the target
-	// bullet speed is given as S
 	// set velocity accoring to MATH!!
 
 	auto bullet = m_entities.addEntity("bullet");
@@ -236,6 +230,7 @@ void Game::spawnBullet(std::shared_ptr<Entity> e, const Vec2& target)
 	std::cout << "Bullet totalLifespan is: " << totalLifespan << "\n" << "total len: " << totalLen << "\n";
 	bullet->cLifespan = std::make_shared<CLifespan>(totalLifespan+4);
 
+	std::cout << "CP after bullet life has been blessed to it\n";
 	// lifespan can be gotten by, total = dist between Xm, Ym - start pos, see how many pixels per frame and multiply by fps
 }
 
@@ -246,19 +241,10 @@ void Game::spawnSpecialWeapon(std::shared_ptr<Entity> e)
 
 void Game::sMovement()
 {
-	// TODO
-	// All entity movement here
-		// read the m_player->cInput comp to determine if the player is moving
-
-
 	// get the x and y movement for the velocity
 	float speed = m_playerConfig.S; // speed is the movement in pixel per frame. so it is also hypotenus if the movent is not in x or y exactly
 	
-	// float v_x = cos(45) * speed;
-	// float v_y = sin(45) * speed;
-
 	Vec2 dir(0, 0);
-	// implement movement
 	if (m_player->cInput->up) dir.y -= 1;
 	if (m_player->cInput->down) dir.y += 1;
 	if (m_player->cInput->left) dir.x -=1;
@@ -277,16 +263,35 @@ void Game::sMovement()
 	m_player->cTransform->velocity.x = dir.x * speed;
 	m_player->cTransform->velocity.y = dir.y * speed;
 
-	m_player->cTransform->pos.x += m_player->cTransform->velocity.x;
-	m_player->cTransform->pos.y += m_player->cTransform->velocity.y;
+	if (!m_player->hasCollidedAtX())
+	{
+		m_player->cTransform->pos.x += m_player->cTransform->velocity.x;
+	}
+	if (!m_player->hasCollidedAtY())
+	{
+		m_player->cTransform->pos.y += m_player->cTransform->velocity.y;
+	}
+	m_player->setCollidedAtX(false);
+	m_player->setCollidedAtY(false);
 
 	// for other entites
 	for (auto e : m_entities.getEntities("enemy"))
 	{
+		if (e->hasCollidedAtX())
+		{
+			e->cTransform->velocity.x *= -1;
+		}
+		if (e->hasCollidedAtY())
+		{
+			e->cTransform->velocity.y *= -1;
+		}
 		e->cTransform->pos.x += e->cTransform->velocity.x;
 		e->cTransform->pos.y += e->cTransform->velocity.y;
+		e->setCollidedAtX(false);
+		e->setCollidedAtY(false);
 	}
-for (auto e : m_entities.getEntities("bullet"))
+
+	for (auto e : m_entities.getEntities("bullet"))
 	{
 		e->cTransform->pos.x += e->cTransform->velocity.x;
 		e->cTransform->pos.y += e->cTransform->velocity.y;
@@ -326,20 +331,18 @@ void Game::sLifespan()
 
 void Game::sCollision()
 {
-	// TODO
-	// implement the collisions
-	// use coll rad not the Shape rad
 
 	sf::Vector2 window_size = m_window.getSize();
 	for (auto e : m_entities.getEntities())
 	{
 		if (e->cTransform->pos.x <= 0 + e->cShape->circle.getRadius() || e->cTransform->pos.x >= window_size.x - e->cShape->circle.getRadius())
 		{
-			e->cTransform->velocity.x *= -1;
+			e->setCollidedAtX(true);
+			
 		}
 		if (e->cTransform->pos.y <= 0 + e->cShape->circle.getRadius() || e->cTransform->pos.y >= window_size.y - e->cShape->circle.getRadius())
 		{
-			e->cTransform->velocity.y *= -1;
+			e->setCollidedAtY(true);
 		}
 	}
 
@@ -347,13 +350,19 @@ void Game::sCollision()
 	{
 		for (auto e : m_entities.getEntities("enemy"))
 		{
-			Vec2 new_vec = {e->cTransform->pos.x - b->cTransform->pos.x, e->cTransform->pos.y - b->cTransform->pos.y};
-			float squared_dist = new_vec.x * new_vec.x + new_vec.y * new_vec.y;
-
-			if (squared_dist < b->cCollision->radius * b->cCollision->radius + e->cCollision->radius * e->cCollision->radius)
+			if (b->isActive() && e->isActive())
 			{
-				if (b) b->destroy();
-				if (e) e->destroy();
+
+				Vec2 new_vec = {e->cTransform->pos.x - b->cTransform->pos.x, e->cTransform->pos.y - b->cTransform->pos.y};
+				float squared_dist = new_vec.x * new_vec.x + new_vec.y * new_vec.y;
+
+				if (squared_dist < b->cCollision->radius * b->cCollision->radius + e->cCollision->radius * e->cCollision->radius)
+				{
+					if (b)
+						b->destroy();
+					if (e)
+						e->destroy();
+				}
 			}
 		}
 	}
@@ -365,7 +374,8 @@ void Game::sEnemySpawner()
 
 	// use m_currentFrame - m_lastEnemySpawnTime to determine
 	// to get how long it has ben since last enemy spawned
-	if (m_currentFrame - m_lastEnemySpawnTime >= m_enemyConfig.SI){
+	if (m_currentFrame - m_lastEnemySpawnTime >= m_enemyConfig.SI)
+	{
 		spawnEnemy();
 	}
 }
@@ -374,17 +384,17 @@ void Game::sRender()
 {
 	m_window.clear();
 
-	for (auto e: m_entities.getEntities())
+	for (auto e : m_entities.getEntities())
 	{
 		if (e->cShape && e->cTransform && e->isActive())
 		{
 
-		e->cShape->circle.setPosition(e->cTransform->pos.x, e->cTransform->pos.y);
+			e->cShape->circle.setPosition(e->cTransform->pos.x, e->cTransform->pos.y);
 
-		e->cTransform->angle += 4.0f;
-		e->cShape->circle.setRotation(e->cTransform->angle); // older one circleRotation(m_player->cTransform->angle);
-		
-		m_window.draw(e->cShape->circle);
+			e->cTransform->angle += 4.0f;
+			e->cShape->circle.setRotation(e->cTransform->angle); // older one circleRotation(m_player->cTransform->angle);
+
+			m_window.draw(e->cShape->circle);
 		}
 	}
 	m_window.display();
@@ -411,69 +421,68 @@ void Game::sUserInput()
 		{
 			switch (event.key.code)
 			{
-				case sf::Keyboard::W:
-				{
-					std::cout << "W pressed\n";
-					m_player->cInput->up = true;
-					// TODO set the vars here
-					break;
-				}
+			case sf::Keyboard::W:
+			{
+				std::cout << "W pressed\n";
+				m_player->cInput->up = true;
+				// TODO set the vars here
+				break;
+			}
 
-				case sf::Keyboard::S:
-				{
-					std::cout << "S pressed\n";
-					m_player->cInput->down = true;
-					break;
-				}
+			case sf::Keyboard::S:
+			{
+				std::cout << "S pressed\n";
+				m_player->cInput->down = true;
+				break;
+			}
 
-				case sf::Keyboard::A:
-				{
-					std::cout << "A pressed\n";
-					m_player->cInput->left = true;
-					break;
-				}
+			case sf::Keyboard::A:
+			{
+				std::cout << "A pressed\n";
+				m_player->cInput->left = true;
+				break;
+			}
 
-				case sf::Keyboard::D:
-				{
-					std::cout << "D pressed\n";
-					m_player->cInput->right = true;
-					break;
-				}
-
+			case sf::Keyboard::D:
+			{
+				std::cout << "D pressed\n";
+				m_player->cInput->right = true;
+				break;
+			}
 			}
 		}
 		if (event.type == sf::Event::KeyReleased)
 		{
 			switch (event.key.code)
 			{
-				case sf::Keyboard::W:
-				{
-					std::cout << "W released\n";
-					m_player->cInput->up = false;
-					// TODO set the vars here
-					break;
-				}
+			case sf::Keyboard::W:
+			{
+				std::cout << "W released\n";
+				m_player->cInput->up = false;
+				// TODO set the vars here
+				break;
+			}
 
-				case sf::Keyboard::S:
-				{
-					std::cout << "S released\n";
-					m_player->cInput->down = false;
-					break;
-				}
+			case sf::Keyboard::S:
+			{
+				std::cout << "S released\n";
+				m_player->cInput->down = false;
+				break;
+			}
 
-				case sf::Keyboard::A:
-				{
-					std::cout << "A released\n";
-					m_player->cInput->left = false;
-					break;
-				}
+			case sf::Keyboard::A:
+			{
+				std::cout << "A released\n";
+				m_player->cInput->left = false;
+				break;
+			}
 
-				case sf::Keyboard::D:
-				{
-					std::cout << "D released\n";
-					m_player->cInput->right = false;
-					break;
-				}
+			case sf::Keyboard::D:
+			{
+				std::cout << "D released\n";
+				m_player->cInput->right = false;
+				break;
+			}
 			}
 		}
 
@@ -482,7 +491,7 @@ void Game::sUserInput()
 			if (event.mouseButton.button == sf::Mouse::Left)
 			{
 				std::cout << "Left mouse Button at (" << event.mouseButton.x << ","
-				<< event.mouseButton.y << ")\n";
+						  << event.mouseButton.y << ")\n";
 				// TODO call spawn the bullets
 				spawnBullet(m_player, Vec2(event.mouseButton.x, event.mouseButton.y)); // TODO check
 			}
@@ -490,66 +499,64 @@ void Game::sUserInput()
 			if (event.mouseButton.button == sf::Mouse::Right)
 			{
 				std::cout << "Left mouse Button at (" << event.mouseButton.x << ","
-				<< event.mouseButton.y << ")\n";
+						  << event.mouseButton.y << ")\n";
 				// call special weapon
 				spawnSpecialWeapon(m_player); // TODO check
+			}
 		}
 	}
 }
 
-}
+//! print all
+// std::cout << "=== Window Config ===\n";
+// std::cout << "Width       : " << win_w << "\n";
+// std::cout << "Height      : " << win_h << "\n";
+// std::cout << "FPS         : " << fps << "\n";
+// std::cout << "Fullscreen  : " << (fullscreen ? "Yes" : "No") << "\n\n";
 
+// std::cout << "=== Font Config ===\n";
+// std::cout << "Font path   : " << font_path << "\n";
+// std::cout << "Font size   : " << font_size << "\n";
+// std::cout << "Color (RGB) : (" << f_r << ", " << f_g << ", " << f_b << ")\n\n";
 
-	//! print all
-    // std::cout << "=== Window Config ===\n";
-    // std::cout << "Width       : " << win_w << "\n";
-    // std::cout << "Height      : " << win_h << "\n";
-    // std::cout << "FPS         : " << fps << "\n";
-    // std::cout << "Fullscreen  : " << (fullscreen ? "Yes" : "No") << "\n\n";
+// std::cout << "=== Player Config ===\n";
+// std::cout << "SR : " << m_playerConfig.SR << "\n";
+// std::cout << "CR : " << m_playerConfig.CR << "\n";
+// std::cout << "S  : " << m_playerConfig.S << "\n";
+// std::cout << "FR : " << m_playerConfig.FR << "\n";
+// std::cout << "FG : " << m_playerConfig.FG << "\n";
+// std::cout << "FB : " << m_playerConfig.FB << "\n";
+// std::cout << "OR : " << m_playerConfig.OR << "\n";
+// std::cout << "OG : " << m_playerConfig.OG << "\n";
+// std::cout << "OB : " << m_playerConfig.OB << "\n";
+// std::cout << "OT : " << m_playerConfig.OT << "\n";
+// std::cout << "V  : " << m_playerConfig.V << "\n\n";
 
-    // std::cout << "=== Font Config ===\n";
-    // std::cout << "Font path   : " << font_path << "\n";
-    // std::cout << "Font size   : " << font_size << "\n";
-    // std::cout << "Color (RGB) : (" << f_r << ", " << f_g << ", " << f_b << ")\n\n";
+// std::cout << "=== Enemy Config ===\n";
+// std::cout << "SR    : " << m_enemyConfig.SR << "\n";
+// std::cout << "CR    : " << m_enemyConfig.CR << "\n";
+// std::cout << "SMIN  : " << m_enemyConfig.SMIN << "\n";
+// std::cout << "SMAX  : " << m_enemyConfig.SMAX << "\n";
+// std::cout << "OR    : " << m_enemyConfig.OR << "\n";
+// std::cout << "OG    : " << m_enemyConfig.OG << "\n";
+// std::cout << "OB    : " << m_enemyConfig.OB << "\n";
+// std::cout << "OT    : " << m_enemyConfig.OT << "\n";
+// std::cout << "VMIN  : " << m_enemyConfig.VMIN << "\n";
+// std::cout << "VMAX  : " << m_enemyConfig.VMAX << "\n";
+// std::cout << "L     : " << m_enemyConfig.L << "\n";
+// std::cout << "SI    : " << m_enemyConfig.SI << "\n\n";
 
-    // std::cout << "=== Player Config ===\n";
-    // std::cout << "SR : " << m_playerConfig.SR << "\n";
-    // std::cout << "CR : " << m_playerConfig.CR << "\n";
-    // std::cout << "S  : " << m_playerConfig.S << "\n";
-    // std::cout << "FR : " << m_playerConfig.FR << "\n";
-    // std::cout << "FG : " << m_playerConfig.FG << "\n";
-    // std::cout << "FB : " << m_playerConfig.FB << "\n";
-    // std::cout << "OR : " << m_playerConfig.OR << "\n";
-    // std::cout << "OG : " << m_playerConfig.OG << "\n";
-    // std::cout << "OB : " << m_playerConfig.OB << "\n";
-    // std::cout << "OT : " << m_playerConfig.OT << "\n";
-    // std::cout << "V  : " << m_playerConfig.V << "\n\n";
-
-    // std::cout << "=== Enemy Config ===\n";
-    // std::cout << "SR    : " << m_enemyConfig.SR << "\n";
-    // std::cout << "CR    : " << m_enemyConfig.CR << "\n";
-    // std::cout << "SMIN  : " << m_enemyConfig.SMIN << "\n";
-    // std::cout << "SMAX  : " << m_enemyConfig.SMAX << "\n";
-    // std::cout << "OR    : " << m_enemyConfig.OR << "\n";
-    // std::cout << "OG    : " << m_enemyConfig.OG << "\n";
-    // std::cout << "OB    : " << m_enemyConfig.OB << "\n";
-    // std::cout << "OT    : " << m_enemyConfig.OT << "\n";
-    // std::cout << "VMIN  : " << m_enemyConfig.VMIN << "\n";
-    // std::cout << "VMAX  : " << m_enemyConfig.VMAX << "\n";
-    // std::cout << "L     : " << m_enemyConfig.L << "\n";
-    // std::cout << "SI    : " << m_enemyConfig.SI << "\n\n";
-
-    // std::cout << "=== Bullet Config ===\n";
-    // std::cout << "SR : " << m_bulletConfig.SR << "\n";
-    // std::cout << "CR : " << m_bulletConfig.CR << "\n";
-    // std::cout << "S  : " << m_bulletConfig.S << "\n";
-    // std::cout << "FR : " << m_bulletConfig.FR << "\n";
-    // std::cout << "FG : " << m_bulletConfig.FG << "\n";
-    // std::cout << "FB : " << m_bulletConfig.FB << "\n";
-    // std::cout << "OR : " << m_bulletConfig.OR << "\n";
-    // std::cout << "OG : " << m_bulletConfig.OG << "\n";
-    // std::cout << "OB : " << m_bulletConfig.OB << "\n";
-    // std::cout << "OT : " << m_bulletConfig.OT << "\n";
-    // std::cout << "V  : " << m_bulletConfig.V << "\n";
-    // std::cout << "L  : " << m_bulletConfig.L << "\n";
-	//////////////////////////////// !
+// std::cout << "=== Bullet Config ===\n";
+// std::cout << "SR : " << m_bulletConfig.SR << "\n";
+// std::cout << "CR : " << m_bulletConfig.CR << "\n";
+// std::cout << "S  : " << m_bulletConfig.S << "\n";
+// std::cout << "FR : " << m_bulletConfig.FR << "\n";
+// std::cout << "FG : " << m_bulletConfig.FG << "\n";
+// std::cout << "FB : " << m_bulletConfig.FB << "\n";
+// std::cout << "OR : " << m_bulletConfig.OR << "\n";
+// std::cout << "OG : " << m_bulletConfig.OG << "\n";
+// std::cout << "OB : " << m_bulletConfig.OB << "\n";
+// std::cout << "OT : " << m_bulletConfig.OT << "\n";
+// std::cout << "V  : " << m_bulletConfig.V << "\n";
+// std::cout << "L  : " << m_bulletConfig.L << "\n";
+//////////////////////////////// !
