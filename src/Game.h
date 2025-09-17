@@ -17,16 +17,32 @@ class Game
 {
 	sf::RenderWindow m_window;
 	EntityManager m_entities;
+
 	sf::Font m_font;
-	sf::Text m_text;
+	sf::Text m_scoreText;
+	sf::Text m_playerLifeText;
+	sf::Text m_gameOverText;
+	sf::Text m_textPlayerWon;
+	sf::Text m_pointsNeededText;
+
 	PlayerConfig m_playerConfig;
 	EnemyConfig m_enemyConfig;
 	BulletConfig m_bulletConfig;
+	std::string m_fontPath;
+	int m_fontSize;
+	int m_fontR;
+	int m_fontG;
+	int m_fontB;
+
 	int m_score = 0;
+	int m_scoreToBeat = 20;
+	int m_playerLife = 10;
 	int m_currentFrame = 0;
 	int m_lastEnemySpawnTime = 0;
 	bool m_paused = false;
 	bool m_running = true;
+	bool m_playerWon = false;
+	bool m_gameOver = false;
 
 
 	std::shared_ptr<Entity> m_player;
@@ -48,6 +64,8 @@ class Game
 	void spawnSmallEnemies(std::shared_ptr<Entity> entity);
 	void spawnBullet(std::shared_ptr<Entity> entity, const Vec2& mousePos);
 	void spawnSpecialWeapon(std::shared_ptr<Entity> entity);
+	void setGameOver(bool);
+	void setPlayerWon(bool);
 
 public:
 
