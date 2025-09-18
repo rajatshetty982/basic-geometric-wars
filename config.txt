@@ -1,5 +1,5 @@
-window 1280 720 60 1
+window 1280 720 60 0
 Font /mnt/study_work/comp/learn/weekly_project_challenge/c_and_c++/sfml/fonts/KillerTech.ttf 19 255 255 255
 Player 32 33 12 25 115 255 255 200 10 4 8
-Enemy 32 34 6 9 255 0 0 2 3 8 90 80
+Enemy 32 34 6 9 255 0 0 2 3 8 90 120
 Bullet 10 10 13 255 255 255 0 0 0 2 20 90

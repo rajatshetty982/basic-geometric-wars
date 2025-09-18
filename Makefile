@@ -13,7 +13,7 @@ OBJ_FILES = $(SRC_FILES:.cpp=.o)
 all: $(OUTPUT)
 
 $(OUTPUT): $(OBJ_FILES)
-	$(CXX) $(OBJ_FILES) $(LDFLAGS) -o ./bin/$(OUTPUT)
+	$(CXX) -g $(OBJ_FILES) $(LDFLAGS) -o ./bin/$(OUTPUT)
 
 .cpp.o:
 	$(CXX) -c $(CXX_FLAGS) $(INCLUDES) $< -o $@

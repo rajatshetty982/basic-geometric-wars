@@ -12,6 +12,8 @@ class Entity
 	std::string m_tag = "default";
 	bool m_collidedAtX = false;
 	bool m_collidedAtY = false;
+	size_t m_points = 1;
+	bool m_isSmallEnemy = false;
 
 	// constructor
 	Entity(const size_t id, const std::string &tag)
@@ -36,4 +38,8 @@ public:
 	bool hasCollidedAtY();
 	void setCollidedAtY(bool);
 	void setCollidedAtX(bool);
+	void setPointForSmallEnemies();
+	size_t getPoints();
+	void setIsSmallEnemy();
+	bool isSmallEmeny();
 };

@@ -35,8 +35,8 @@ class Game
 	int m_fontB;
 
 	int m_score = 0;
-	int m_scoreToBeat = 20;
-	int m_playerLife = 10;
+	int m_scoreToBeat = 200;
+	int m_playerLife = 1000;
 	int m_currentFrame = 0;
 	int m_lastEnemySpawnTime = 0;
 	bool m_paused = false;

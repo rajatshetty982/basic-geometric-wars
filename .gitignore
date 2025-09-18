@@ -3,4 +3,5 @@ design/
 bin/
 .vscode/
 src/*.o
+build/
 

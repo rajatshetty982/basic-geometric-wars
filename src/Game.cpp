@@ -16,11 +16,6 @@ void Game::init(const std::string &path)
 	int win_w, win_h, fps;
 	bool fullscreen;
 
-	std::cout << "\n";
-	std::cout << "Current working directory: ";
-	system("pwd"); // prints working directory
-	std::cout << "\n";
-
 	// read config file start
 	std::ifstream fin(path);
 	if (!fin.is_open())
@@ -139,13 +134,12 @@ void Game::run()
 			sEnemySpawner();
 			sMovement();
 			sCollision();
-			sUserInput();
 			sLifespan();
 		}
+		sUserInput();
 		sRender();
 
 		// increment the current frame;
-		// may need to be moved when pause is implemented
 		m_currentFrame++;
 	}
 }
@@ -180,9 +174,6 @@ void Game::spawnPlayer()
 
 void Game::spawnEnemy()
 {
-	// TODO: make sure the enemy us spawned with the m_enemyConfig vars
-	// the enemy must be spawned completely within the bounds of the window
-
 	auto entity = m_entities.addEntity("enemy");
 
 	srand(static_cast<unsigned int>(time(0))); // seed the rand generator
@@ -210,7 +201,7 @@ void Game::spawnEnemy()
 	float v_y = sin(random_angle) * random_speed; // * Note check the angle
 	Vec2 velocity(v_x, v_y);
 
-	entity->cTransform = std::make_shared<CTransform>(Vec2(x_rand, y_rand), velocity, random_angle);
+	entity->cTransform = std::make_shared<CTransform>(Vec2(x_rand, y_rand), velocity, random_angle, random_speed);
 
 	int max_vertices = m_enemyConfig.VMAX;
 	int min_vertices = m_enemyConfig.VMIN;
@@ -225,26 +216,70 @@ void Game::spawnEnemy()
 	m_lastEnemySpawnTime = m_currentFrame;
 }
 
-void Game::spawnSmallEnemies(std::shared_ptr<Entity> e)
+void Game::spawnSmallEnemies(std::shared_ptr<Entity> e) // TODO: isnt used after the enemy dies, need to add it there.
 {
 	// spanw smaller enemies at location of the enemy e
+	size_t numOfSides = e->cShape->circle.getPointCount();
 
-	// read the e to get the details
-	size_t num_of_sides = e->cShape->circle.getPointCount();
 	// spawn n spawn enemies for n sides of e
-
 	// set same colour and half the size
-	// these are worth double of original enemy
+	float completeAngle = 360;
+	float angleSteps = completeAngle / numOfSides;
 
-	// entity->cCollision = std::make_shared<CCollision>(.CR);
+	float currentAngle = 0;
+	std::cout << "num of sides: " << numOfSides << '\n';
+
+	for (int i = 0; i < numOfSides; i++)
+	{
+			std::cout << "curr angle: " << currentAngle << " i: " << i << '\n'
+					  << "angleSteps: " << angleSteps << '\n';
+			// create the entity
+			auto entity = m_entities.addEntity("enemy");
+
+			// extract shape data from the dying enemy and put it in its dying fragments
+			float radius = e->cShape->circle.getRadius() / 2;
+			int vertices = e->cShape->circle.getPointCount();
+			sf::Color fillColor = e->cShape->circle.getFillColor();
+			sf::Color outlineColor = e->cShape->circle.getOutlineColor();
+			float outThickness = e->cShape->circle.getOutlineThickness();
+			entity->cShape = std::make_shared<CShape>(radius, vertices, fillColor, outlineColor, outThickness);
+
+			// give it the transform
+			// use the current pos of the dying entity
+			 Vec2 pos(e->cTransform->pos.x, e->cTransform->pos.y);
+
+			// get the speed
+			float dyingEntitySpeed = e->cTransform->speed - 10;
+
+			// get the x and y dir movement
+			float radians = currentAngle * (M_PI/ 180.0f);
+
+			float v_x = cos(radians) * dyingEntitySpeed;
+			float v_y = sin(radians) * dyingEntitySpeed;
+			Vec2 newVelocity(v_x, v_y);
+
+			entity->cTransform = std::make_shared<CTransform>(pos, newVelocity, 0);
+
+			// set 2 points for killing this fragments
+			entity->setPointForSmallEnemies();
+			entity->setIsSmallEnemy();
+
+			// give an arbitray life, for testing
+			entity->cLifespan = std::make_shared<CLifespan>(40);
+
+			entity->cCollision = std::make_shared<CCollision>(radius + 5);
+
+			// set the angle for next spawn
+			currentAngle += angleSteps;
+	}
 }
 
 void Game::spawnBullet(std::shared_ptr<Entity> e, const Vec2 &target)
 {
-	// set velocity accoring to MATH!!
+	// set velocity
 
 	auto bullet = m_entities.addEntity("bullet");
-	// MATHH!!
+	// a little bit of MATHH!!
 	float dx = target.x - m_player->cTransform->pos.x;
 	float dy = target.y - m_player->cTransform->pos.y;
 
@@ -277,7 +312,6 @@ void Game::spawnBullet(std::shared_ptr<Entity> e, const Vec2 &target)
 	bullet->cLifespan = std::make_shared<CLifespan>(totalLifespan + 4);
 
 	std::cout << "CP after bullet life has been blessed to it\n";
-	// lifespan can be gotten by, total = dist between Xm, Ym - start pos, see how many pixels per frame and multiply by fps
 }
 
 void Game::spawnSpecialWeapon(std::shared_ptr<Entity> e)
@@ -288,7 +322,7 @@ void Game::spawnSpecialWeapon(std::shared_ptr<Entity> e)
 void Game::sMovement()
 {
 	// get the x and y movement for the velocity
-	float speed = m_playerConfig.S; // speed is the movement in pixel per frame. so it is also hypotenus if the movent is not in x or y exactly
+	float speed = m_playerConfig.S; // speed is the movement in pixel per frame. so it is also hypotenus if the movemnt is not in x or y exactly
 
 	// Set directiona nd normalize
 	Vec2 dir(0, 0);
@@ -333,14 +367,6 @@ void Game::sMovement()
 
 void Game::sLifespan()
 {
-	// TODO
-	// for all entities
-	// if entity has no lifespan comp skip
-	// if it has > than 0 subtract 1
-	// if has lifespan and alive
-	// scale alpha properly (it should have alpha of percentage of it life left)
-	// if has lifespan and is 0
-	// destroy!!
 	for (auto e : m_entities.getEntities())
 	{
 		if (e->cLifespan)
@@ -351,7 +377,7 @@ void Game::sLifespan()
 				// int currentAlpha = e->getCurrentAlpha();
 				float ratioOfAlphaToSet = float(e->cLifespan->remaining) / float(e->cLifespan->total);
 				int alphaToSet = ratioOfAlphaToSet * 255;
-				std::cout << "ratio " << ratioOfAlphaToSet << "Alpha: " << alphaToSet << "\n";
+				// std::cout << "ratio " << ratioOfAlphaToSet << "Alpha: " << alphaToSet << "\n";
 				e->setAlpha(alphaToSet);
 			}
 			if (e->isActive() && e->cLifespan->remaining <= 0)
@@ -390,8 +416,9 @@ void Game::sCollision()
 			if (e->cTransform->pos.x < radius || e->cTransform->pos.x > window_size.x - radius)
 			{
 				e->cTransform->velocity.x *= -1;
-				// something gpt suggested me to look into. SOMETIMES ITS GOOD TO HAVE SOMEONE (SOMETHING GIVING FEEDBACK!!
-				e->cTransform->pos.x = std::clamp(e->cTransform->pos.x, radius, (float)window_size.x - radius); // now that I think about this, its much cleaner if did how I did it above
+				// something gpt suggested me to look into. SOMETIMES ITS GOOD TO HAVE SOMEONE (SOMETHING) GIVING FEEDBACK and suggestions!!
+				e->cTransform->pos.x = std::clamp(e->cTransform->pos.x, radius, (float)window_size.x - radius);
+				// now that I think about it, it was much simpler the way i had done it above, just have few more lines of code
 			}
 
 			if (e->cTransform->pos.y < radius || e->cTransform->pos.y > window_size.y - radius)
@@ -402,32 +429,6 @@ void Game::sCollision()
 		}
 	}
 
-	// collision between bullet and the enemy
-	for (auto b : m_entities.getEntities("bullet"))
-	{
-		for (auto e : m_entities.getEntities("enemy"))
-		{
-			if (b->isActive() && e->isActive())
-			{
-
-				Vec2 new_vec = {e->cTransform->pos.x - b->cTransform->pos.x, e->cTransform->pos.y - b->cTransform->pos.y};
-				float squared_dist = new_vec.x * new_vec.x + new_vec.y * new_vec.y;
-
-				if (squared_dist < b->cCollision->radius * b->cCollision->radius + e->cCollision->radius * e->cCollision->radius)
-				{
-					if (b)
-						b->destroy();
-					if (e)
-						e->destroy();
-					m_score++;
-					if (m_score == m_scoreToBeat)
-					{
-						setPlayerWon(true);
-					}
-				}
-			}
-		}
-	}
 
 	float player_rad = m_player->cCollision->radius;
 	float playerPosX = m_player->cTransform->pos.x;
@@ -453,6 +454,40 @@ void Game::sCollision()
 			}
 		}
 	}
+
+	// collision between bullet and the enemy
+	for (auto b : m_entities.getEntities("bullet"))
+	{
+		for (auto e : m_entities.getEntities("enemy"))
+		{
+			if (b->isActive() && e->isActive())
+			{
+
+				Vec2 new_vec = {e->cTransform->pos.x - b->cTransform->pos.x, e->cTransform->pos.y - b->cTransform->pos.y};
+				float squared_dist = new_vec.x * new_vec.x + new_vec.y * new_vec.y;
+
+				if (squared_dist < b->cCollision->radius * b->cCollision->radius + e->cCollision->radius * e->cCollision->radius)
+				{
+					m_score += e->getPoints(); // TODO set the point in smallenemies
+
+					if (m_score == m_scoreToBeat)
+					{
+						setPlayerWon(true);
+					}
+					// spawn small enemies when the e is hit
+					if (!e->isSmallEmeny())
+					{
+						spawnSmallEnemies(e);
+					}
+
+					if (b)
+						b->destroy();
+					if (e)
+						e->destroy();
+				}
+			}
+		}
+	}
 }
 
 void Game::setGameOver(bool)
@@ -468,7 +503,6 @@ void Game::sEnemySpawner()
 {
 	// TODO enemy spawning will go here
 
-	// use m_currentFrame - m_lastEnemySpawnTime to determine
 	// to get how long it has ben since last enemy spawned
 	if (m_currentFrame - m_lastEnemySpawnTime >= m_enemyConfig.SI)
 	{
@@ -516,11 +550,6 @@ void Game::sRender()
 
 void Game::sUserInput()
 {
-	// TODO handle user input
-	//	set the players input component vars here
-	// no movement logic here
-	// movement system does the loigc by reading the vars set here
-
 	sf::Event event;
 
 	while (m_window.pollEvent(event))
@@ -535,6 +564,26 @@ void Game::sUserInput()
 		{
 			switch (event.key.code)
 			{
+			case sf::Keyboard::Escape:
+			{
+				m_running = false;
+				break;
+			}
+
+			case sf::Keyboard::P:
+			{
+				if (m_paused)
+				{
+					m_paused = false;
+				}
+				else
+				{
+					m_paused = true;
+				}
+
+				break;
+			}
+
 			case sf::Keyboard::W:
 			{
 				std::cout << "W pressed\n";
@@ -572,7 +621,6 @@ void Game::sUserInput()
 			{
 				std::cout << "W released\n";
 				m_player->cInput->up = false;
-				// TODO set the vars here
 				break;
 			}
 
@@ -605,7 +653,7 @@ void Game::sUserInput()
 			{
 				std::cout << "Left mouse Button at (" << event.mouseButton.x << ","
 						  << event.mouseButton.y << ")\n";
-				spawnBullet(m_player, Vec2(event.mouseButton.x, event.mouseButton.y)); 
+				spawnBullet(m_player, Vec2(event.mouseButton.x, event.mouseButton.y));
 			}
 
 			if (event.mouseButton.button == sf::Mouse::Right)

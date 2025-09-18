@@ -19,7 +19,6 @@ const size_t Entity::id() const
 void Entity::destroy()
 {
 	m_active = false;
-	// do something else?
 }
 
 void Entity::setAlpha(int alphaValue)
@@ -48,4 +47,21 @@ void Entity::setCollidedAtX(bool boolVal)
 void Entity::setCollidedAtY(bool boolVal)
 {
 	m_collidedAtY = boolVal;
+}
+void Entity::setPointForSmallEnemies()
+{
+	m_points = 2;
+}
+
+size_t Entity::getPoints()
+{
+	return m_points;
+}
+void Entity::setIsSmallEnemy()
+{
+	m_isSmallEnemy = true;
+}
+bool Entity::isSmallEmeny()
+{
+	return m_isSmallEnemy;
 }
